@@ -1,0 +1,30 @@
+{
+  "name": "github-login",
+  "version": "1.0.0",
+  "description": "scrap user and cookies form github",
+  "main": "server.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1",
+    "start": "node server.js"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/gabrieldta/github-login.git"
+  },
+  "keywords": [
+    "scrap",
+    "node",
+    "javascript",
+    "github",
+    "express"
+  ],
+  "author": "gabrieldornelas",
+  "license": "ISC",
+  "bugs": {
+    "url": "https://github.com/gabrieldta/github-login/issues"
+  },
+  "homepage": "https://github.com/gabrieldta/github-login#readme",
+  "dependencies": {
+    "express": "^4.17.1"
+  }
+}
