@@ -64,6 +64,7 @@ function decodeResponseBody(response, body) {
 module.exports = class DataFetcher {
   constructor() {
     this.cookies = "";
+    this.userAgent = this.randUserAgent();
   }
 
   async loginOnGitHub(parameters) {
@@ -75,8 +76,8 @@ module.exports = class DataFetcher {
     );
 
     let homePage = await this.fetchHomePageLogged(sessionPage);
-    let homePageCookies = this.getCookies(homePage);
-    let user = this.scrapToken(homePage);
+    let homePageCookies = this.getCookies(homePage.response);
+    let user = this.scrapUser(homePage.body);
 
     return {
       user: user,
@@ -98,26 +99,18 @@ module.exports = class DataFetcher {
     let authToken = this.scrapToken(loginPageResponse.body);
 
     let headers = {
-      Accept:
-        "text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,image/apng,*/*;q=0.8,application/signed-exchange;v=b3",
-      "Accept-Language": "pt-BR,pt;q=0.9,en-US;q=0.8,en;q=0.7,es;q=0.6",
-      "Cache-Control": "max-age=0",
-      Connection: "keep-alive",
-      "Content-Type": "application/x-www-form-urlencoded",
-      Cookie: this.cookies,
-      Host: "github.com",
-      Origin: "https://github.com",
-      Referer: "https://github.com/login",
-      "Upgrade-Insecure-Requests": "1",
-      "User-Agent":
-        "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/75.0.3770.142 Safari/537.36"
+      "content-type": "application/x-www-form-urlencoded",
+      cookie: this.cookies,
+      host: "github.com",
+      origin: "https://github.com",
+      referer: "https://github.com/login"
     };
 
     let payload = "commit=Sign+in".concat(
       "&utf8=%E2%9C%93",
-      "&authenticity_token=" + encodeURI(authToken),
-      "&login=" + encodeURI(parameters.login),
-      "&password=" + encodeURI(parameters.password),
+      "&authenticity_token=" + encodeURIComponent(authToken),
+      "&login=" + encodeURIComponent(parameters.login),
+      "&password=" + encodeURIComponent(parameters.password),
       "&webauthn-support=supported"
     );
 
@@ -134,7 +127,7 @@ module.exports = class DataFetcher {
     return await this.fetchPage(options);
   }
 
-  async fetchHomePageLogged(sessionPageResponse, cookies) {
+  async fetchHomePageLogged(sessionPageResponse) {
     this.cookies += this.getCookies(sessionPageResponse.response);
 
     let headers = {
@@ -144,13 +137,11 @@ module.exports = class DataFetcher {
       "Cache-Control": "max-age=0",
       Connection: "keep-alive",
       "Content-Type": "application/x-www-form-urlencoded",
-      Cookie: this.cookies,
+      Cookie: this.cookies.replace("logged_in=no;", ""),
       Host: "github.com",
       Origin: "https://github.com",
       Referer: "https://github.com/login",
-      "Upgrade-Insecure-Requests": "1",
-      "User-Agent":
-        "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/75.0.3770.142 Safari/537.36"
+      "Upgrade-Insecure-Requests": "1"
     };
 
     let options = this.computeOptions({
@@ -227,6 +218,10 @@ module.exports = class DataFetcher {
     return new Promise(function(resolve, reject) {
       console.log("Requesting " + options.url + " ...");
       request(options, function(err, response, body) {
+        if (response) {
+          console.log("STATUS " + response.statusCode);
+        }
+
         if (err) {
           console.log("Error on access " + options.url);
           console.log(err.stack);
@@ -243,20 +238,17 @@ module.exports = class DataFetcher {
   }
 
   /**
-   * Compute all options of request, like headers, url, request type and proxy
+   * Compute all options of request, like headers, url and request type
    *
    * @param parameters -> all parameters sended of user
-   * @param proxy -> proxy to be used for this request
    */
   computeOptions(parameters) {
     let options = {
       timeout: 30000,
       headers: {},
       encoding: null,
-      userAgent: null,
+      followAllRedirects: true,
       followRedirect: true,
-      rejectUnauthorized: false,
-      requestCert: true,
       time: true
     };
 
@@ -274,6 +266,7 @@ module.exports = class DataFetcher {
 
       if (requestParameters.hasOwnProperty("follow_redirect")) {
         options.followRedirect = requestParameters.follow_redirect;
+        options.followAllRedirects = requestParameters.follow_redirect;
       }
 
       if (requestParameters.payload) {
@@ -284,12 +277,9 @@ module.exports = class DataFetcher {
         );
 
         if (!options.headers["content-type"]) {
-          Logging.logError(
-            sessionId,
-            requestId,
+          console.log(
             "You need to send Content-Type in headers to identify the body content of this request."
           );
-          statistics.return;
         }
       }
     }
@@ -300,14 +290,8 @@ module.exports = class DataFetcher {
       delete options.headers["accept"];
     }
 
-    if (!options.headers.hasOwnProperty("content-encoding")) {
-      options.headers["content-encoding"] = "gzip";
-    } else if (options.headers["content-encoding"] == "") {
-      delete options.headers["content-encoding"];
-    }
-
     if (!options.headers.hasOwnProperty("user-agent")) {
-      options.headers["user-agent"] = this.randUserAgent();
+      options.headers["user-agent"] = this.userAgent;
     } else if (options.headers["user-agent"] == "") {
       delete options.headers["user-agent"];
     }
