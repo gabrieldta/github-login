@@ -1,6 +1,8 @@
 const request = require("request");
 const jsdom = require("jsdom");
 const { JSDOM } = jsdom;
+let iconv = require("iconv");
+let charset = require("charset");
 
 const USER_AGENTS = [
   "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/42.0.2311.135 Safari/537.36 Edge/12.246",
@@ -13,6 +15,52 @@ const USER_AGENTS = [
   "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/69.0.3497.100 Safari/537.36"
 ];
 
+/**
+ *
+ * Identifies the charset and converts to utf8
+ *
+ * @param {*} response -> request response
+ * @param {*} body -> request body
+ * @returns encoded string
+ */
+function decodeResponseBody(response, body) {
+  let finalBody = body;
+
+  let c = charset(response.headers, body);
+
+  if (!c) {
+    let dom = new JSDOM(finalBody.toString("utf-8"));
+    let metaCharset = dom.window.document.querySelector("meta[charset]");
+
+    if (metaCharset && metaCharset.hasAttribute("charset")) {
+      c = element.getAttribute("charset");
+    } else {
+      let metaContent = dom.window.document.querySelector(
+        'head > meta[http-equiv="Content - Type"][content]'
+      );
+
+      if (metaContent && metaContent.hasAttribute("content")) {
+        c = charset(
+          {
+            "Content-Type": metaContent.getAttribute("content")
+          },
+          body
+        );
+      }
+    }
+  }
+
+  if (c) {
+    try {
+      finalBody = new iconv.Iconv(c, "utf-8").convert(body);
+    } catch (e) {
+      console.log(e);
+    }
+  }
+
+  return finalBody.toString("utf-8");
+}
+
 module.exports = class DataFetcher {
   constructor() {
     this.cookies = "";
@@ -21,25 +69,19 @@ module.exports = class DataFetcher {
   async loginOnGitHub(parameters) {
     let loginPageResponse = await this.fetchLoginPage();
 
-    this.cookies = this.getCookies(loginPageResponse);
-    let authToken = this.scrapToken(loginPageResponse);
+    let sessionPage = await this.fetchValidateSessionPage(
+      parameters,
+      loginPageResponse
+    );
 
-    console.log(this.cookies);
-    console.log(authToken);
+    let homePage = await this.fetchHomePageLogged(sessionPage);
+    let homePageCookies = this.getCookies(homePage);
+    let user = this.scrapToken(homePage);
 
-    // let sessionPage = await this.fetchValidateSessionPage(
-    //   parameters,
-    //   loginPageResponse
-    // );
-
-    // let homePage = await this.fetchHomePageLogged(sessionPage);
-    // let homePageCookies = this.getCookies(homePage);
-    // let user = this.scrapToken(homePage);
-
-    // return {
-    //   user: user,
-    //   cookies: homePageCookies
-    // };
+    return {
+      user: user,
+      cookies: homePageCookies
+    };
   }
 
   async fetchLoginPage() {
@@ -52,8 +94,8 @@ module.exports = class DataFetcher {
   }
 
   async fetchValidateSessionPage(parameters, loginPageResponse) {
-    this.cookies = this.getCookies(loginPageResponse);
-    let authToken = this.scrapToken(loginPageResponse);
+    this.cookies = this.getCookies(loginPageResponse.response);
+    let authToken = this.scrapToken(loginPageResponse.body);
 
     let headers = {
       Accept:
@@ -62,7 +104,7 @@ module.exports = class DataFetcher {
       "Cache-Control": "max-age=0",
       Connection: "keep-alive",
       "Content-Type": "application/x-www-form-urlencoded",
-      Cookie: cookies,
+      Cookie: this.cookies,
       Host: "github.com",
       Origin: "https://github.com",
       Referer: "https://github.com/login",
@@ -93,7 +135,7 @@ module.exports = class DataFetcher {
   }
 
   async fetchHomePageLogged(sessionPageResponse, cookies) {
-    this.cookies += this.getCookies(sessionPageResponse);
+    this.cookies += this.getCookies(sessionPageResponse.response);
 
     let headers = {
       Accept:
@@ -102,7 +144,7 @@ module.exports = class DataFetcher {
       "Cache-Control": "max-age=0",
       Connection: "keep-alive",
       "Content-Type": "application/x-www-form-urlencoded",
-      Cookie: cookies,
+      Cookie: this.cookies,
       Host: "github.com",
       Origin: "https://github.com",
       Referer: "https://github.com/login",
@@ -153,23 +195,23 @@ module.exports = class DataFetcher {
     return cookies;
   }
 
-  scrapToken(response) {
+  scrapToken(body) {
     let token = null;
-    let dom = new JSDOM(response.body.toString("utf-8"));
+    let dom = new JSDOM(body.toString("utf-8"));
     let tokenElement = dom.window.document.querySelector(
-      "input[authenticity_token]"
+      "input[name=authenticity_token]"
     );
 
-    if (tokenElement && tokenElement.hasAttribute("authenticity_token")) {
-      token = tokenElement.getAttribute("authenticity_token");
+    if (tokenElement && tokenElement.hasAttribute("value")) {
+      token = tokenElement.getAttribute("value");
     }
 
     return token;
   }
 
-  scrapUser(response) {
+  scrapUser(body) {
     let user = null;
-    let dom = new JSDOM(response.body.toString("utf-8"));
+    let dom = new JSDOM(body.toString("utf-8"));
     let userElement = dom.window.document.querySelector(
       "a.user-profile-link > strong"
     );
@@ -184,14 +226,17 @@ module.exports = class DataFetcher {
   async fetchPage(options) {
     return new Promise(function(resolve, reject) {
       console.log("Requesting " + options.url + " ...");
-      request(options, function(err, response) {
+      request(options, function(err, response, body) {
         if (err) {
           console.log("Error on access " + options.url);
           console.log(err.stack);
           reject(err);
         } else {
           console.log("Success on request " + options.url + " ...");
-          resolve(response);
+          resolve({
+            response: response,
+            body: decodeResponseBody(response, body)
+          });
         }
       });
     });
