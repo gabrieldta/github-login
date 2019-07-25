@@ -1,0 +1,30 @@
+Some definitions of HTTP Requests
+
+1- GET
+The GET method requests the representation of a specific resource. Requests using the GET method should return data only.
+
+2- POST
+The POST method is used to subject an entity to a specific resource, often causing a change in resource state or side effects on the server.
+
+3- Query String
+This is a group of parameter that you can pass with url.
+Ex: ?Key=value&AnotherKey=AnotherValue.
+
+4- Body
+Body is the request main content, can be a html, JSON, XMl etc...
+
+5- Multipart
+A HTTP multipart request is a HTTP request that HTTP clients construct to send files and data over to a HTTP Server. It is commonly used by browsers and HTTP clients to upload files to the server.
+
+6- FormData
+This is a type of request payload (body of http request) Ex: foo=20
+
+7- Crawler
+Crawler is the common word for webcrawler or webscraper.
+
+	* Webcrawler
+	A web crawler starts your process with a set of urls called ‘Seeds’. To visit each URL the crawler downloads the page, collects the 	links on this page and places them queued along with the other URLs.
+
+	* Webscraper
+	Web scraping is a technique of software engineering widely used by companies to extract existing data / content in websites. 
+	A simple way of explaining is a program that reads HTML codes of web pages and makes analysis of the obtained data.
