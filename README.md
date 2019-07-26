@@ -9,6 +9,10 @@ This project is a api to :
 
 Simple health check, always return 200
 
+### route /doc GET
+
+Only redirect for this readme
+
 ### route /json-to-xml POST
 
 You need to send a json on payload, so this api will return your json in xml format

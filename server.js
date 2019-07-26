@@ -21,7 +21,7 @@ app.get("/status", function(req, res) {
 
 app.get("/doc", function(req, res) {
   res.redirect(
-    "https://github.com/gabrieldta/crawler-vagas/blob/master/README.md"
+    "https://github.com/gabrieldta/github-login/blob/master/README.md"
   );
 });
 
